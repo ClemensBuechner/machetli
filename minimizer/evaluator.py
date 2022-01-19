@@ -31,3 +31,7 @@ class ParsingEvaluator(Evaluator):
         Must be implemented in derived classes.
         """
         raise NotImplementedError()
+
+
+# TODO: should be executable as script
+# TODO: document how user needs to set up evaluator

@@ -8,7 +8,6 @@ import errno
 from minimizer import tools
 
 
-# This function is copied from lab.calls.call (<https://lab.readthedocs.org>).
 def set_limit(kind, soft_limit, hard_limit):
     try:
         resource.setrlimit(kind, (soft_limit, hard_limit))
@@ -68,6 +67,7 @@ class Run:
                 # Convert memory from MiB to Bytes.
                 set_limit(resource.RLIMIT_AS, memory_limit *
                           1024 * 1024, hard_mem_limit)
+            # TODO: document no core dumps
             set_limit(resource.RLIMIT_CORE, 0, 0)
 
         formatted_command = [part.format(**state) for part in self.command]
@@ -94,6 +94,7 @@ class Run:
         return (out_str, err_str, process.returncode)
 
 
+# TODO: merge with base class
 class RunWithInputFile(Run):
     """Extension of the :class:`Run <minimizer.run.Run>` class adding
     the option of sending the content of a file to stdin.
@@ -156,6 +157,7 @@ class RunWithInputFile(Run):
         return (out_str, err_str, process.returncode)
 
 
+# TODO: does not belong to states... runs could be executed by evaluators
 def run_all(state):
     """Start all runs in *state["runs"]* and return a *results* dictionary
     where run outputs of run *run_name* can be accessed via:
@@ -183,6 +185,7 @@ def run_all(state):
     return results
 
 
+# TODO: why is this not part of evaluator?
 def run_and_parse_all(state, parsers):
     """Execute :func:`minimizer.run.run_all` and apply all *parsers* to the
     generated stdout and stderr outputs. Return an updated version of the

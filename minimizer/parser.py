@@ -57,6 +57,7 @@ class _Pattern:
 
 
 class _ContentParser:
+    # TODO: update doc string
     """
     Private class that parses a given file according to the added patterns
     and functions.
@@ -65,6 +66,12 @@ class _ContentParser:
     def __init__(self):
         self.patterns = []
         self.functions = []
+
+    # TODO: content should be passed when applied (content local
+    #  variable in *apply_functions*)
+    def initialize(self, cmd_name, content):
+        self.cmd_name = cmd_name
+        self.content = content
 
     def add_pattern(self, pattern):
         self.patterns.append(pattern)
@@ -85,6 +92,8 @@ class _ContentParser:
             function(content, props)
 
 
+# TODO: we probably don't need that because we probably don't need the
+#  same parser for multiple files / runs.
 class Parser:
     """
     Parse stdout and stderr strings.

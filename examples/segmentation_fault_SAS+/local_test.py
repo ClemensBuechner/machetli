@@ -59,6 +59,9 @@ def assertion_error(content, props):
 parser.add_function(assertion_error, "seg_fault")
 
 
+# TODO: in evaluator: allow to input tuples <run, parser> if necessary
+#  to have separate parsers for separate runs
+
 class MyEvaluator(Evaluator):
     def evaluate(self, state):
         # We want our SAS+ task to be available behind the generated_sas_filename
