@@ -36,6 +36,7 @@ class Environment:
     def submit(self, batch, batch_id, evaluator):
         pass
 
+    # TODO: job_id not necessary. In slurm environment store currently running job. Submitting multiple is not allowed.
     @abstractmethod
     def wait_until_finished(self):
         pass
@@ -95,27 +96,30 @@ class SlurmEnvironment(Environment):
     ):
         Environment.__init__(self, batch_size=batch_size, **kwargs)
 
-        self.email = email
+# TODO: rename enforce_order -- needs warning that it can take longer
+#  allow_nondeterministic_successor_choice (default true)
+        self.email = email  # TODO: support emails in local environment
         self.extra_options = extra_options or "## (not used)"
         self.partition = partition or self.DEFAULT_PARTITION
         self.qos = qos or self.DEFAULT_QOS
         self.memory_per_cpu = memory_per_cpu or self.DEFAULT_MEMORY_PER_CPU
         self.cpus_per_task = cpus_per_task
         self.nice = nice or self.DEFAULT_NICE
-        self.export = export or self.DEFAULT_EXPORT
+        self.export = export or self.DEFAULT_EXPORT  # TODO: missing in template (see in lab)
         self.setup = setup or self.DEFAULT_SETUP
-        self.script_path = tools.get_script_path()
+        self.script_path = tools.get_script_path()  # TODO: why in environment?
 
         script_dir = os.path.dirname(self.script_path)
-        self.eval_dir = os.path.join(script_dir, EVAL_DIR)
-        tools.makedirs(self.eval_dir)
+        self.eval_dir = os.path.join(script_dir, EVAL_DIR)  # TODO: why?
         st.check_for_whitespace(self.eval_dir)
-        self.sbatch_file = os.path.join(script_dir, SBATCH_FILE)
-        self.wait_for_filesystem(self.eval_dir)
-        self.critical = False
+        tools.makedirs(self.eval_dir)
+        self.wait_for_filesystem(self.eval_dir)  # TODO: combine with makedirs
+        self.sbatch_file = os.path.join(script_dir, SBATCH_FILE)  # TODO: use pathlib instead of os.path.join
+        self.job = None
 
     def get_job_params(self):
         job_params = dict()
+        # TODO: check if all params are used
         job_params["logfile"] = "slurm.log"
         job_params["errfile"] = "slurm.err"
         job_params["partition"] = self.partition
@@ -130,6 +134,7 @@ class SlurmEnvironment(Environment):
             0.98 * self.cpus_per_task * self._get_memory_in_kb(
                 self.memory_per_cpu))
         job_params["python"] = tools.get_python_executable()
+        # TODO: script_path no longer required when evaluator refactored
         job_params["script_path"] = self.script_path
         return job_params
 
@@ -138,23 +143,28 @@ class SlurmEnvironment(Environment):
         try:
             self.job = self.submit_array_job(batch, batch_id)
         except SubmissionError as se:
+            # TODO: should be part of search
             if self.allow_nondeterministic_successor_choice:
                 se.warn_abort()
                 raise se
             else:
                 se.warn()
                 # TODO: this means job is undefined, so we should also abort.
+        # TODO: return whether submit successful or not
 
+    # TODO: move error handling to search
     def wait_until_finished(self):
         assert self.job
         try:
             self.poll_job()
         except TaskError as te:
+            # TODO: move to more descriptive function
             if self.allow_nondeterministic_successor_choice:
                 te.remove_tasks_after_first_critical(self.job)
                 if not self.job["tasks"]:
                     raise te
             else:
+                # FIXME: should these do the same thing?
                 te.remove_critical_tasks(self.job)
                 if not self.job["tasks"]:
                     # TODO: this is just a hack to replace the "continue"
@@ -174,6 +184,7 @@ class SlurmEnvironment(Environment):
 
         successor = None
         for task in self.job["tasks"]:
+            # TODO: get run_dir by function for ID of task
             result_file = os.path.join(task["dir"], "result")
             if self.wait_for_filesystem(result_file):
                 if st.parse_exit_code(result_file) == 0:
@@ -194,8 +205,10 @@ class SlurmEnvironment(Environment):
         self.job = None
         return successor
 
+    # TODO: get rid of this. should only be relevant on compute nodes. handle there.
     def wait_for_filesystem(self, *paths):
         attempts = int(FILESYSTEM_TIME_LIMIT / FILESYSTEM_TIME_INTERVAL)
+        # TODO: only sleep after check
         for _ in range(attempts):
             time.sleep(FILESYSTEM_TIME_INTERVAL)
             paths = [path for path in paths if not os.path.exists(path)]
@@ -215,6 +228,7 @@ class SlurmEnvironment(Environment):
             st.pickle_and_dump_state(state, dump_file_path)
             run_dirs.append(run_dir_path)
         # Give the NFS time to write the paths
+        # TODO: must be checked on the grid side
         if not self.wait_for_filesystem(*run_dirs):
             logging.critical(
                 f"One of the following paths is missing:\n"
@@ -230,7 +244,6 @@ class SlurmEnvironment(Environment):
         filled_text = st.fill_template(**dictionary)
         with open(self.sbatch_file, "w") as f:
             f.write(filled_text)
-        # TODO: Implement check whether file was updated
 
     def submit_array_job(self, batch, batch_num):
         """
@@ -255,6 +268,7 @@ class SlurmEnvironment(Environment):
         else:
             logging.info(match.group(0))
         job_id = match.group(1)
+        # TODO: do differently
         job = {"id": job_id,
                "tasks": [{"state": s, "dir": d} for s, d in
                          zip(batch, run_dirs)]}
@@ -280,6 +294,8 @@ class SlurmEnvironment(Environment):
                         busy.append(task_id)
                     else:
                         critical.append(task_id)
+                # TODO: rethink what should happen when? Critical before busy if enforce_order!
+                #  poll until all are done or critical
                 if busy:
                     logging.info(
                         f"{len(busy)} task"
